@@ -30,6 +30,8 @@
 
 namespace gpu_voxels {
 
+
+
 GpuVoxels::GpuVoxels()
   :m_dim(0)
   ,m_voxel_side_length(0)
@@ -57,6 +59,7 @@ void GpuVoxels::initialize(const uint32_t dim_x, const uint32_t dim_y, const uin
     m_dim.y = dim_y;
     m_dim.z = dim_z;
     m_voxel_side_length = voxel_side_length;
+
   }
   else
   {

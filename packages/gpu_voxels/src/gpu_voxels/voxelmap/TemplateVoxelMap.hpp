@@ -38,6 +38,7 @@
 #include <thrust/fill.h>
 #include <thrust/gather.h>
 #include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/zip_iterator.h>
 
@@ -68,13 +69,13 @@ TemplateVoxelMap<Voxel>::TemplateVoxelMap(const Vector3ui dim,
                                           m_collision_check_results(NULL)
 {
   this->m_map_type = map_type;
-  if (dim.x * dim.y * dim.z * sizeof(Voxel) > (pow(2, 32) - 1))
+  if (dim.x * dim.y * dim.z * sizeof(Voxel) > (pow(2, 64) - 1))
   {
     LOGGING_ERROR_C(VoxelmapLog, VoxelMap, "Map size limited to 32 bit addressing!" << endl);
     exit(-1);
   }
 
-  if (getVoxelMapSize() * sizeof(Voxel) > (pow(2, 32) - 1))
+  if (getVoxelMapSize() * sizeof(Voxel) > (pow(2, 64) - 1))
   {
     LOGGING_ERROR_C(VoxelmapLog, VoxelMap, "Memory size is limited to 32 bit!" << endl);
     exit(-1);
@@ -202,7 +203,7 @@ void TemplateVoxelMap<BitVectorVoxel>::clearMap()
   HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
   HANDLE_CUDA_ERROR(
     cudaMemset(m_dev_data, 0, m_voxelmap_size*sizeof(gpu_voxels::BitVectorVoxel)));
-
+  
   // Clear result array
   for (uint32_t i = 0; i < cMAX_NR_OF_BLOCKS; i++)
   {
@@ -702,11 +703,184 @@ void TemplateVoxelMap<Voxel>::insertPointCloud(const Vector3f* d_points, uint32_
 
   HANDLE_CUDA_ERROR(cudaMemcpy(&points_outside_map, m_dev_points_outside_map, sizeof(bool), cudaMemcpyDeviceToHost));
   HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
-  if(points_outside_map)
-  {
-    LOGGING_WARNING_C(VoxelmapLog, VoxelMap, "You tried to insert points that lie outside the map dimensions!" << endl);
-  }
+  // if(points_outside_map)
+  // {
+  //   LOGGING_WARNING_C(VoxelmapLog, VoxelMap, "You tried to insert points that lie outside the map dimensions!" << endl);
+  // }
 }
+
+// do added
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::ReconVoxelToDepthTriple(float* const depthArr0, float* const depthArr1, float* const depthArr2, uint8_t* const maskArr0, uint8_t* const maskArr1, uint8_t* const maskArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2,
+                                gpu_voxels::Matrix4f const extrInvArr0, gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height,
+                                const uint16_t mask_width, const float scale)
+{
+
+}
+
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::ReconVoxelToDepthTriple(float* const depthArr0, float* const depthArr1, float* const depthArr2, uint8_t* const maskArr0, uint8_t* const maskArr1, uint8_t* const maskArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2,
+                                gpu_voxels::Matrix4f const extrInvArr0, gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height,
+                                const uint16_t mask_width, const float scale)
+{
+  // int blockSize;      // The launch configurator returned block size
+  // int minGridSize;    // The minimum grid size needed to achieve the
+  //                     // maximum occupancy for a full device
+  //                     // launch
+  // int gridSize;       // The actual grid size needed, based on input
+  //                     // size
+  // int32_t arrayCount = 256*256*256;
+  // cudaOccupancyMaxPotentialBlockSize(
+  //     &minGridSize,
+  //     &blockSize,
+  //     (void*)kernelReconVoxelToDepth,
+  //     0,
+  //     arrayCount);
+
+  // Round up according to array size
+  // gridSize = (arrayCount + blockSize - 1) / blockSize;
+  // std::cout << "gridSize : " << gridSize << std::endl; // 21846
+  // std::cout << "blockSize : " << blockSize << std::endl; //768
+
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  // kernelReconVoxelToDepth<<<m_blocks, m_threads>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr, maskArr, intrInvArr, extrInvArr, depth_width, depth_height, mask_width, scale);
+  // kernelReconVoxelToDepthTriple<<<m_blocks, m_threads>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height, mask_width, scale);
+  kernelReconVoxelToDepthTriple<<<131072, 512>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height, mask_width, scale);
+
+}
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::ReconVoxelToDepthTriple(float* const depthArr0, float* const depthArr1, float* const depthArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2, gpu_voxels::Matrix4f const extrInvArr0,
+                                gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height)
+{
+
+}
+
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::ReconVoxelToDepthTriple(float* const depthArr0, float* const depthArr1, float* const depthArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2, gpu_voxels::Matrix4f const extrInvArr0,
+                                gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height)
+{
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  // std::cout << "block num : " << m_blocks << std::endl; // 16384
+  // std::cout << "thread num : " << m_threads << std::endl; // 1024
+  // uint32_t num_blocks, threads_per_block;
+  // uint32_t size = 256*256*256;
+  // computeLinearLoad(size, &num_blocks, &threads_per_block); 
+  // std::cout<< "++++++++++++++++++++++++++++++++++++++++"<< std::endl;
+  // std::cout << "num_blocks : " << num_blocks << std::endl;  // 900
+  // std::cout << "threads_per_block : " << threads_per_block << std::endl;  // 1024
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  // kernelReconVoxelToDepthTriple<<<m_blocks, m_threads>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height);
+  kernelReconVoxelToDepthTriple<<<131072, 512>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height);
+
+}
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::setConstMemory(const uint16_t depth_width, const uint16_t depth_height, const uint16_t mask_width, const float scale)
+{
+}
+template<>
+
+void TemplateVoxelMap<BitVectorVoxel>::setConstMemory(const uint16_t depth_width, const uint16_t depth_height, const uint16_t mask_width, const float scale)
+{
+  setConstMem(m_dim, m_voxel_side_length, depth_width, depth_height, mask_width, scale);
+  cudaDeviceSynchronize();
+}
+
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::ReconstructionWithPreprocess(float* const depthArr0, float* const depthArr1, float* const depthArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2, gpu_voxels::Matrix4f const extrInvArr0,
+                                gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height)
+{
+
+}
+
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::ReconstructionWithPreprocess(float* const depthArr0, float* const depthArr1, float* const depthArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2, gpu_voxels::Matrix4f const extrInvArr0,
+                                gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height)
+{
+  // std::cout << "block num : " << m_blocks << std::endl; // 16384
+  // std::cout << "thread num : " << m_threads << std::endl; // 1024
+  // uint32_t num_blocks, threads_per_block;
+  // uint32_t size = 256*256*256;
+  uint32_t num_blocks, threads_per_block;
+  uint32_t size = m_dim.x*m_dim.y*m_dim.z;
+  
+  // threads_per_block = 768;
+  computeLinearLoad(size, &num_blocks, &threads_per_block); 
+  // std::cout<< "++++++++++++++++++++++++++++++++++++++++"<< std::endl;
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  // kernelReconWithPreprocess<<<num_blocks, threads_per_block>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height);
+  kernelReconWithPreprocess<<<131072, 512>>>(m_dev_data, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+}
+
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::ReconstructionWithPreprocess(float* const depthArr0, float* const depthArr1, float* const depthArr2, uint8_t* const maskArr0, uint8_t* const maskArr1, uint8_t* const maskArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2,
+                                gpu_voxels::Matrix4f const extrInvArr0, gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height,
+                                const uint16_t mask_width, const float scale)
+{
+
+}
+
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::ReconstructionWithPreprocess(float* const depthArr0, float* const depthArr1, float* const depthArr2, uint8_t* const maskArr0, uint8_t* const maskArr1, uint8_t* const maskArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2,
+                                gpu_voxels::Matrix4f const extrInvArr0, gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height,
+                                const uint16_t mask_width, const float scale)
+{
+  uint32_t num_blocks, threads_per_block;
+  uint32_t size = m_dim.x*m_dim.y*m_dim.z;
+  computeLinearLoad(size, &num_blocks, &threads_per_block);
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  // kernelReconWithPreprocess<<<num_blocks, threads_per_block>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height, mask_width, scale);
+  kernelReconWithPreprocess<<<131072, 512>>>(m_dev_data, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+
+}
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::updateReconThresh(float thresh)
+{
+}
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::updateReconThresh(float thresh)
+{
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  update_threshold(thresh);
+}
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::updateVisUnknown(bool isVisUnknown)
+{
+}
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::updateVisUnknown(bool isVisUnknown)
+{
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
+  update_visUnknown(isVisUnknown);
+}
+
+template<class Voxel>
+void TemplateVoxelMap<Voxel>::getVoxelRaw(unsigned char* d_VoxelRaw)
+{
+}
+template<>
+void TemplateVoxelMap<BitVectorVoxel>::getVoxelRaw(unsigned char* d_VoxelRaw)
+{
+  kernelGetVoxelRaw<<<131072, 512>>>(m_dev_data,d_VoxelRaw);
+}
+
+// do added end
+
 
 template<class Voxel>
 void TemplateVoxelMap<Voxel>::insertCoordinateList(const std::vector<Vector3ui> &coordinates, const BitVoxelMeaning voxel_meaning)
@@ -902,6 +1076,7 @@ void TemplateVoxelMap<Voxel>::insertMetaPointCloud(const MetaPointCloud& meta_po
   }
   HANDLE_CUDA_ERROR(cudaFree(voxel_meanings_d));
 }
+
 
 template<class Voxel>
 bool TemplateVoxelMap<Voxel>::writeToDisk(const std::string path)

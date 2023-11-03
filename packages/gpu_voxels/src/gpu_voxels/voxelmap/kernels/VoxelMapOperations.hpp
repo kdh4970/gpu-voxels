@@ -32,6 +32,155 @@
 namespace gpu_voxels {
 namespace voxelmap {
 
+// do added constant memory
+
+__constant__ uint32_t const_voxel_map_dim[3]; // voxel map dim x, y, z
+__constant__ float const_voxel_side_length[1]; // voxel side length
+__constant__ uint16_t const_depth_size[2]; // depth image size width, height
+__constant__ uint16_t const_mask_width[1];  // mask width
+__constant__ float const_mask_scale[1]; // mask scale
+__constant__ int const_initialBit[1];
+__constant__ int Filter[133]={
+  0
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,1
+  ,2
+  ,3
+  ,4
+  ,5
+  ,-1
+  ,-1
+  ,-1
+  ,6
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,7
+  ,8
+  ,9
+  ,10
+  ,11
+  ,12
+  ,13
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,14
+  ,15
+  ,16
+  ,17
+  ,18
+  ,-1
+  ,19
+  ,20
+  ,21
+  ,22
+  ,23
+  ,24
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,25
+  ,26
+  ,-1
+  ,27
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,28
+  ,-1
+  ,-1
+  ,-1
+  ,29
+  ,30
+  ,31
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,32
+  ,33
+  ,-1
+  ,34
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,35
+  ,36
+  ,37
+  ,38
+  ,39
+  ,40
+  ,41
+  ,42
+  ,-1
+  ,-1
+  ,43
+  ,-1
+  ,44
+  ,45
+  ,46
+  ,-1
+  ,-1
+  ,-1
+  ,-1
+  ,47
+  ,-1
+  ,-1
+  ,-1
+  ,48
+  ,49
+};
+
+// 
+// __constant__ uint8_t const_numofcam[1];
+// __constant__ gpu_voxels::Matrix4f const_intrInv[3]; // inverse intrinsic matrix
+// __constant__ gpu_voxels::Matrix4f const_extrInv[3]; // inverse extrinsic matrix
+
 template<class Voxel>
 __global__
 void kernelClearVoxelMap(Voxel* voxelmap, const uint32_t voxelmap_size)
@@ -249,9 +398,11 @@ void kernelInsertGlobalPointCloud(Voxel* voxelmap, const Vector3ui dimensions, c
     const Vector3ui uint_coords = mapToVoxels(voxel_side_length, points[i]);
     //check if point is in the range of the voxel map
     if ((uint_coords.x < dimensions.x) && (uint_coords.y < dimensions.y)
-        && (uint_coords.z < dimensions.z))
+        && (uint_coords.z < dimensions.z))  // 해당 point cloud 가 map 범위에 존재하는 경우 //
     {
+      // 해당 좌표를 index 로 변환한다음 //
       Voxel* voxel = &voxelmap[getVoxelIndexUnsigned(dimensions, uint_coords)];
+      // eBVM_OCCUPIED : 1 의 값을 해당 index 에 넣어준다.
       voxel->insert(voxel_meaning);
     }
     else
@@ -298,6 +449,337 @@ void kernelInsertGlobalPointCloud(DistanceVoxel* voxelmap, const Vector3ui dimen
     }
   }
 }
+
+// do added
+__device__ __managed__ float recon_threshold = 0.05f;
+
+__device__ __managed__ bool visUnknown = true;
+
+__device__ __host__   __forceinline__
+void update_threshold(float threshold)
+{
+  recon_threshold = threshold;
+}
+
+__device__ __host__   __forceinline__
+void update_visUnknown(bool isVisUnknown)
+{
+  visUnknown = isVisUnknown;
+}
+
+__host__ __forceinline__
+void setConstMem(const Vector3ui dims, const float voxel_side_length, const uint16_t depth_width, const uint16_t depth_height,
+                  const uint16_t mask_width, const float scale)
+{
+  uint32_t map_dim[3] = {dims.x, dims.y, dims.z};
+  float voxel_side[1] = {voxel_side_length};
+  uint16_t depth_size[2] = {depth_width, depth_height};
+  uint16_t mask_size[1] = {mask_width};
+  float scale_size[1] = {scale};
+  int initialBit[1] = {6};
+  cudaMemcpyToSymbol(const_voxel_map_dim, &map_dim, sizeof(uint32_t)*3);
+  cudaMemcpyToSymbol(const_voxel_side_length, &voxel_side, sizeof(float));
+  cudaMemcpyToSymbol(const_depth_size, &depth_size, sizeof(uint16_t)*2);
+  cudaMemcpyToSymbol(const_mask_width, &mask_size, sizeof(uint16_t));
+  cudaMemcpyToSymbol(const_mask_scale, &scale_size, sizeof(float));
+  cudaMemcpyToSymbol(const_initialBit, &initialBit, sizeof(int));
+}
+
+__global__
+void kernelReconVoxelToDepthTriple(BitVectorVoxel* voxelmap, const Vector3ui dims, const float voxel_side_length, float* const depth0,float* const depth1,float* const depth2, uint8_t* const mask0,
+                                uint8_t* const mask1, uint8_t* const mask2, gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2, const uint16_t depth_width,
+                                const uint16_t depth_height, const uint16_t mask_width, const float scale)
+{
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  {
+    bool isMasked=false;
+    Vector3f uint_coords;
+    uint_coords.x = (i % dims.x) * voxel_side_length;
+    uint_coords.y = ((i / dims.x) % dims.y) * voxel_side_length;
+    uint_coords.z = ((i / (dims.x*dims.y)) % dims.z) * voxel_side_length;
+    BitVectorVoxel* voxel = &voxelmap[i];
+    Vector4f proj;
+    proj = ImageSpaceProjections(intrInv0, extrInv0, uint_coords);
+    int x = (int) (proj.x / proj.z); int y = (int) (proj.y / proj.z);
+    if(x>0 && y>0 && x<depth_width && y<depth_height)
+    {
+      float depthValue = depth0[y * depth_width + x];
+      if(depthValue > 0) 
+      {
+        float dist = calculateDistCamtoVox(extrInv0, uint_coords);
+        float t = fabsf(dist-depthValue);
+        if( t < 0.05f) 
+        {
+          uint8_t maskid = mask0[static_cast<int>(round(scale * y)) * mask_width + static_cast<int>(round(scale *x))];
+          for (int j = 10; j < 150; j++) {
+            if(voxel->bitVector().getBit(j) == 1) {
+              isMasked = true; // if voxel already has class data
+            ;}
+          }
+          if(!isMasked){ //if voxel has no class data
+            if(maskid == 0 && visUnknown) voxel->insert(static_cast<BitVoxelMeaning>(1)); // maskid 0 is unknown
+            else if(maskid!=0 && voxel->bitVector().getBit(1)==1){ // if voxel has nonzero class data
+              voxel->clear(static_cast<BitVoxelMeaning>(1));
+              voxel->insert(static_cast<BitVoxelMeaning>(maskid-1+10));
+            }
+            else if(maskid!=0) voxel->insert(static_cast<BitVoxelMeaning>(maskid-1+10));
+          }
+        }
+      }
+    }
+    if(!isMasked){
+      proj = ImageSpaceProjections(intrInv1, extrInv1, uint_coords);
+      x = (int) (proj.x / proj.z); y = (int) (proj.y / proj.z);
+      if(x>0 && y>0 && x<depth_width && y<depth_height)
+      {
+        float depthValue = depth1[y * depth_width + x];
+        if(depthValue > 0) 
+        {
+          float dist = calculateDistCamtoVox(extrInv1, uint_coords);
+          float t = fabsf(dist-depthValue);
+          if( t < 0.05f) 
+          {
+            uint8_t maskid = mask1[static_cast<int>(round(scale * y)) * mask_width + static_cast<int>(round(scale *x))];
+            for (int j = 10; j < 150; j++) {
+              if(voxel->bitVector().getBit(j) == 1) {
+                isMasked = true; // if voxel already has class data
+              ;}
+            }
+            if(!isMasked){ //if voxel has no class data
+              if(maskid == 0 && visUnknown) voxel->insert(static_cast<BitVoxelMeaning>(1)); // maskid 0 is unknown
+              else if(maskid!=0 && voxel->bitVector().getBit(1)==1){ // if voxel has nonzero class data
+                voxel->clear(static_cast<BitVoxelMeaning>(1));
+                voxel->insert(static_cast<BitVoxelMeaning>(maskid-1+10));
+              }
+              else if(maskid!=0) voxel->insert(static_cast<BitVoxelMeaning>(maskid-1+10));
+            }
+          }
+        }
+      }
+    }
+
+    if(!isMasked){
+      proj = ImageSpaceProjections(intrInv2, extrInv2, uint_coords);
+      x = (int) (proj.x / proj.z); y = (int) (proj.y / proj.z);
+      if(x>0 && y>0 && x<depth_width && y<depth_height)
+      {
+        float depthValue = depth2[y * depth_width + x];
+        if(depthValue > 0) 
+        {
+          float dist = calculateDistCamtoVox(extrInv2, uint_coords);
+          float t = fabsf(dist-depthValue);
+          if( t < 0.05f) 
+          {
+            uint8_t maskid = mask2[static_cast<int>(round(scale * y)) * mask_width + static_cast<int>(round(scale *x))];
+            for (int j = 10; j < 150; j++) {
+              if(voxel->bitVector().getBit(j) == 1) {
+                isMasked = true; // if voxel already has class data
+              ;}
+            }
+            if(!isMasked){ //if voxel has no class data
+              if(maskid == 0 && visUnknown) voxel->insert(static_cast<BitVoxelMeaning>(1)); // maskid 0 is unknown
+              else if(maskid!=0 && voxel->bitVector().getBit(1)==1){ // if voxel has nonzero class data
+                voxel->clear(static_cast<BitVoxelMeaning>(1));
+                voxel->insert(static_cast<BitVoxelMeaning>(maskid-1+10));
+              }
+              else if(maskid!=0) voxel->insert(static_cast<BitVoxelMeaning>(maskid-1+10));
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+__global__
+void kernelReconVoxelToDepthTriple(BitVectorVoxel* voxelmap, const Vector3ui dims, const float voxel_side_length, float* const depth0,float* const depth1,float* const depth2,
+                                gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2, const uint16_t depth_width,
+                                const uint16_t depth_height)
+{
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  {
+    Vector3f uint_coords;
+    uint_coords.x = (i % dims.x) * voxel_side_length;
+    uint_coords.y = ((i / dims.x) % dims.y) * voxel_side_length;
+    uint_coords.z = ((i / (dims.x*dims.y)) % dims.z) * voxel_side_length;
+    BitVectorVoxel* voxel = &voxelmap[i];
+    Vector4f proj;
+    proj = ImageSpaceProjections(intrInv0, extrInv0, uint_coords);
+    int x = (int) (proj.x / proj.z); int y = (int) (proj.y / proj.z);
+    if(x>0 && y>0 && x<depth_width && y<depth_height)
+    {
+      float depthValue = depth0[y * depth_width + x];
+      if(depthValue > 0) 
+      {
+        float dist = calculateDistCamtoVox(extrInv0, uint_coords);
+        float t = fabsf(dist-depthValue);
+        if( t < 0.05f) 
+        {
+          voxel->insert(static_cast<BitVoxelMeaning>(1));return;
+        }
+      }
+    }
+    proj = ImageSpaceProjections(intrInv1, extrInv1, uint_coords);
+    x = (int) (proj.x / proj.z); y = (int) (proj.y / proj.z);
+    if(x>0 && y>0 && x<depth_width && y<depth_height)
+    {
+      float depthValue = depth1[y * depth_width + x];
+      if(depthValue > 0) 
+      {
+        float dist = calculateDistCamtoVox(extrInv1, uint_coords);
+        float t = fabsf(dist-depthValue);
+        if( t < 0.05f) 
+        {
+          voxel->insert(static_cast<BitVoxelMeaning>(1));return;
+        }
+      }
+    }
+    proj = ImageSpaceProjections(intrInv2, extrInv2, uint_coords);
+    x = (int) (proj.x / proj.z); y = (int) (proj.y / proj.z);
+    if(x>0 && y>0 && x<depth_width && y<depth_height)
+    {
+      float depthValue = depth2[y * depth_width + x];
+      if(depthValue > 0) 
+      {
+        float dist = calculateDistCamtoVox(extrInv2, uint_coords);
+        float t = fabsf(dist-depthValue);
+        if( t < 0.05f) 
+        {
+          voxel->insert(static_cast<BitVoxelMeaning>(1));return;
+        }
+      }
+    }
+  }
+}
+
+// this for depth and mask reconstruction without gvl->clearmap
+__global__
+void kernelReconWithPreprocess(BitVectorVoxel* voxelmap, float* const depth0,float* const depth1,float* const depth2, uint8_t* const mask0,
+                                uint8_t* const mask1, uint8_t* const mask2, gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2)
+{
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; // 32bit = 4byte
+  Vector3f uint_coords; // 12byte
+  Vector4f proj; // 16byte
+  uint_coords.x = (i % const_voxel_map_dim[0]) * const_voxel_side_length[0];
+  uint_coords.y = ((i / const_voxel_map_dim[0]) % const_voxel_map_dim[1]) * const_voxel_side_length[0];
+  uint_coords.z = ((i / (const_voxel_map_dim[0]*const_voxel_map_dim[1])) % const_voxel_map_dim[2]) * const_voxel_side_length[0];
+  BitVectorVoxel* voxel = &voxelmap[i]; //256bit = 32byte
+  proj = ImageSpaceProjections(intrInv0, extrInv0, uint_coords);
+  int x0 = (int) __fdividef(proj.x, proj.z); int y0 = (int) __fdividef(proj.y, proj.z); // 8*3byte
+  proj = ImageSpaceProjections(intrInv1, extrInv1, uint_coords);
+  int x1 = (int) __fdividef(proj.x, proj.z); int y1 = (int) __fdividef(proj.y, proj.z); 
+  proj = ImageSpaceProjections(intrInv2, extrInv2, uint_coords);
+  int x2 = (int) __fdividef(proj.x, proj.z); int y2 = (int) __fdividef(proj.y, proj.z); 
+
+  bool condition0 = (x0>0) & (y0>0) & (x0<const_depth_size[0]) & (y0<const_depth_size[1]);// 1*3byte
+  bool condition1 = (x1>0) & (y1>0) & (x1<const_depth_size[0]) & (y1<const_depth_size[1]);
+  bool condition2 = (x2>0) & (y2>0) & (x2<const_depth_size[0]) & (y2<const_depth_size[1]);
+
+  bool isExist0 = chkVoxelinDepth(recon_threshold,extrInv0, uint_coords, depth0, const_depth_size[0], x0, y0, condition0);// 1*3byte
+  bool isExist1 = chkVoxelinDepth(recon_threshold,extrInv1, uint_coords, depth1, const_depth_size[0], x1, y1, condition1);
+  bool isExist2 = chkVoxelinDepth(recon_threshold,extrInv2, uint_coords, depth2, const_depth_size[0], x2, y2, condition2);
+  bool isExist = isExist0 || isExist1 || isExist2;
+
+  uint8_t maskid0 = isExist0 ? mask0[static_cast<int>(round(const_mask_scale[0] * y0)) * const_mask_width[0] + static_cast<int>(round(const_mask_scale[0] *x0))] : 0;//1*3byte
+  uint8_t maskid1 = isExist1 ? mask1[static_cast<int>(round(const_mask_scale[0] * y1)) * const_mask_width[0] + static_cast<int>(round(const_mask_scale[0] *x1))] : 0;
+  uint8_t maskid2 = isExist2 ? mask2[static_cast<int>(round(const_mask_scale[0] * y2)) * const_mask_width[0] + static_cast<int>(round(const_mask_scale[0] *x2))] : 0;
+
+  // bool maskExist = (maskid0 != 0 || maskid1 != 0 || maskid2 != 0);
+  bool maskExist = ((maskid0 | maskid1 | maskid2) != 0);
+  int oldBit=voxel->bitVector().findBit();
+  int maskinput=chkMask(oldBit, maskid0, maskid1, maskid2);
+  int filtered = maskinput==-1?0: Filter[maskinput-1];
+  uint8_t newBit = filtered==-1?0: filtered+const_initialBit[0];
+
+   // not exist old voxel
+  if(oldBit == -1) {
+    if(isExist) {// new voxel exist
+      if(maskExist){ // new voxel has mask data
+        if(newBit!=0) voxel->insert(static_cast<BitVoxelMeaning>(newBit));
+        return;}
+      else{ // new voxel has no mask data
+        if(visUnknown) voxel->insert(static_cast<BitVoxelMeaning>(1));
+        return;}
+    }
+    else{ // new voxel not exist
+      return;}
+  }
+  // exist old voxel
+  else{
+    if(isExist){ // new voxel exist
+      if(maskExist){ // new voxel has mask data
+        if(oldBit == newBit) return; // if state is not changed, do nothing
+        else{ // if state is changed
+          // printf("oldBit : %d , oldBit1 : %d\n", oldBit, oldBit1);
+          voxel->clear(static_cast<BitVoxelMeaning>(oldBit));
+          voxel->insert(static_cast<BitVoxelMeaning>(newBit));
+          return;}
+      }
+      else{ // new voxel has no mask data
+        if(!visUnknown) voxel->clear(static_cast<BitVoxelMeaning>(oldBit));
+        return;} // just remmain old voxel's class data
+    }
+    else{ // new voxel not exist
+      voxel->clear(static_cast<BitVoxelMeaning>(oldBit));return;}
+  }
+  // if(!visUnknown) voxel->clear(static_cast<BitVoxelMeaning>(1));
+}
+
+
+// this for only depth reconsturction without gvl->clearmap
+__global__
+void kernelReconWithPreprocess(BitVectorVoxel* voxelmap, float* const depth0,float* const depth1,float* const depth2, gpu_voxels::Matrix4f const intrInv0, 
+                              gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                              gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2)
+{
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  Vector3f uint_coords;
+  uint_coords.x = (i % const_voxel_map_dim[0]) * const_voxel_side_length[0];
+  uint_coords.y = ((i / const_voxel_map_dim[0]) % const_voxel_map_dim[1]) * const_voxel_side_length[0];
+  uint_coords.z = ((i / (const_voxel_map_dim[0]*const_voxel_map_dim[1])) % const_voxel_map_dim[2]) * const_voxel_side_length[0];
+  BitVectorVoxel* voxel = &voxelmap[i];
+  bool oldBit = voxel->bitVector().getBit(1) == 1;
+  // printf("oldBit : %d\n", oldBit);
+  Vector4f proj;
+  proj = ImageSpaceProjections(intrInv0, extrInv0, uint_coords);
+  int x0 = (int) __fdividef(proj.x, proj.z); int y0 = (int) __fdividef(proj.y, proj.z);
+  proj = ImageSpaceProjections(intrInv1, extrInv1, uint_coords);
+  int x1 = (int) __fdividef(proj.x, proj.z); int y1 = (int) __fdividef(proj.y, proj.z);
+  proj = ImageSpaceProjections(intrInv2, extrInv2, uint_coords);
+  int x2 = (int) __fdividef(proj.x, proj.z); int y2 = (int) __fdividef(proj.y, proj.z);
+  bool condition0 = (x0>0) & (y0>0) & (x0<const_depth_size[0]) & (y0<const_depth_size[1]);
+  bool condition1 = (x1>0) & (y1>0) & (x1<const_depth_size[0]) & (y1<const_depth_size[1]);
+  bool condition2 = (x2>0) & (y2>0) & (x2<const_depth_size[0]) & (y2<const_depth_size[1]);
+  bool isExist = chkVoxelinDepth(recon_threshold, extrInv0, uint_coords, depth0,const_depth_size[0], x0, y0,condition0) || chkVoxelinDepth(recon_threshold, extrInv1, uint_coords, depth1, const_depth_size[0], x1, y1,condition1) || chkVoxelinDepth(recon_threshold, extrInv2, uint_coords, depth2, const_depth_size[0], x2, y2,condition2);
+
+  // exist old voxel, not exist new voxel
+  if(oldBit && !isExist) {
+    voxel->clear(static_cast<BitVoxelMeaning>(1));return;
+  }
+  // not exist old voxel, exist new voxel
+  else if(!oldBit && isExist) {
+    voxel->insert(static_cast<BitVoxelMeaning>(1));return;
+  }
+  // if state is not changed, do nothing
+  else 
+    return;
+}
+
+__global__
+void kernelGetVoxelRaw(BitVectorVoxel* voxelmap, unsigned char* d_VoxeRaw)
+{
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+  BitVectorVoxel* voxel = &voxelmap[i];
+  if(voxel->bitVector().getBit(1))
+  {
+    d_VoxeRaw[i] = 255;
+  }
+}
+
+// do added end
 
 template<class Voxel>
 __global__

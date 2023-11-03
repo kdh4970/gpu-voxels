@@ -745,16 +745,40 @@ inline Vector3f operator*(const Matrix4f& m, const Vector3f& v)
                   m.a31 * v.x + m.a32 * v.y + m.a33 * v.z + m.a34);
 }
 
-__device__ __host__
+/*__device__ __host__
    inline Vector3f operator*(const Matrix4f& m, const Vector4f& v)
 {
   Vector3f result;
   result.x = m.a11 * v.x + m.a12 * v.y + m.a13 * v.z + m.a14 * v.w;
   result.y = m.a21 * v.x + m.a22 * v.y + m.a23 * v.z + m.a24 * v.w;
   result.z = m.a31 * v.x + m.a32 * v.y + m.a33 * v.z + m.a34 * v.w;
+
   return result;
 }
+*/
 
+__device__ __host__
+   inline Vector4f operator*(const Matrix4f& m, const Vector4f& v)
+{
+  Vector4f result;
+  result.x = m.a11 * v.x + m.a12 * v.y + m.a13 * v.z + m.a14 * v.w;
+  result.y = m.a21 * v.x + m.a22 * v.y + m.a23 * v.z + m.a24 * v.w;
+  result.z = m.a31 * v.x + m.a32 * v.y + m.a33 * v.z + m.a34 * v.w;
+  result.w = m.a41 * v.x + m.a42 * v.y + m.a43 * v.z + m.a44 * v.w;
+
+  return result;
+}
+__device__ __host__
+   inline Vector4f operator*(const Matrix4f& m, const Vector4i& v)
+{
+  Vector4f result;
+  result.x = m.a11 * v.x + m.a12 * v.y + m.a13 * v.z + m.a14 * v.w;
+  result.y = m.a21 * v.x + m.a22 * v.y + m.a23 * v.z + m.a24 * v.w;
+  result.z = m.a31 * v.x + m.a32 * v.y + m.a33 * v.z + m.a34 * v.w;
+  result.w = m.a41 * v.x + m.a42 * v.y + m.a43 * v.z + m.a44 * v.w;
+  
+  return result;
+}
 
 __device__ __host__
 inline Matrix4f operator-(const Matrix4f& a, const Matrix4f& b)

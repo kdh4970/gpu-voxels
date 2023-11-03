@@ -204,6 +204,7 @@ public:
   __host__ __device__
   bool getBit(const uint32_t index) const
   {
+  //                        00000001         00000111 
     return getByte(index) & (1 << (index & 7));
   }
 
@@ -251,18 +252,48 @@ public:
     *selected_byte = data;
   }
 
+  // do added
+  __host__ __device__
+  int findBit()
+  {
+    // 19 byte contain bit from 0 to 151 
+  
+    for (uint8_t i = 0; i < 19; i++) // m_size=32
+    {
+      // find byte index i first
+      if (m_bytes[i])
+      {
+        #if defined(__CUDACC__) && !defined(__GNUC__)
+        # pragma unroll
+        #endif
+        for (uint8_t j = 0; j < 8; j++)
+        {
+          // find bit index j
+          if (m_bytes[i] & (1 << j))
+          {
+            // return bitvector index
+            return i * 8 + j;
+          }
+        }
+      }
+    }
+    return -1;\
+  }
 
-   __host__ __device__
-   void dump()
-   {
-     const size_t byte_size = sizeof(typename BitVector<num_bits>::item_type);
-     printf("[");
-     for(std::size_t i = 0; i < num_bits; i+=byte_size*8)
-     {
-       printf(" %hu", *(getByte(i)));
-     }
-     printf(" ]\n");
-   }
+  // do added
+
+
+  __host__ __device__
+  void dump()
+  {
+    const size_t byte_size = sizeof(typename BitVector<num_bits>::item_type);
+    printf("[");
+    for(std::size_t i = 0; i < num_bits; i+=byte_size*8)
+    {
+      printf(" %hu", *(getByte(i)));
+    }
+    printf(" ]\n");
+  }
 
   /**
    * @brief operator << Overloaded ostream operator. Please note that the output bit string is starting from

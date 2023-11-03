@@ -37,7 +37,9 @@ namespace gpu_voxels {
 namespace voxelmap {
 
 
+
 /* ------------------ DEVICE FUNCTIONS ------------------ */
+
 
 // VoxelMap addressing
 //! Maps 3D voxel coordinates to linear voxel index
@@ -129,6 +131,142 @@ Vector3ui mapToVoxels(const float voxel_side_length, const Vector3f &coordinates
   // printf("coordinates.x = %f -> uint_coords.x = %u \n", coordinates.x, uint_coords.x);
   return uint_coords;
 }
+
+__device__ __host__     __forceinline__
+Vector4f ImageSpaceProjections(const Matrix4f intr, const Matrix4f extr, const Vector3f &coor)
+{
+  Vector4f _coords;
+  _coords.x = coor.x;
+  _coords.y = coor.y;
+  _coords.z = coor.z;
+  _coords.w = 1;
+
+  gpu_voxels::Matrix4f axis( 1, 0, 0, 2.56,
+                 0, 1, 0, 2.56,
+                 0, 0, 1, 1.0,
+                 0, 0, 0, 1);
+  gpu_voxels::Matrix4f axisT; 
+  axis.invertMatrix(axisT);
+  // printf("coordinates.x = %f -> uint_coords.x = %u \n", coordinates.x, uint_coords.x);
+  Vector4f temp = axisT * _coords;
+  temp = extr * temp;
+  temp = intr * temp;
+
+  return temp;
+}
+
+__device__ __host__     __forceinline__
+float calculateDistCamtoVox(const Matrix4f extrinsic, const Vector3f &coordinates)
+{
+  Vector4f _coords;
+  _coords.x = coordinates.x;
+  _coords.y = coordinates.y;
+  _coords.z = coordinates.z;
+  _coords.w = 1.0f;
+ /* gpu_voxels::Matrix4f axis( 1, 0, 0, -2,
+							   0, 0, -1, 1,
+							   0, 1, 0, -1,
+							   0, 0, 0, 1
+		                     ); 
+  gpu_voxels::Matrix4f axisInv;
+  axis.invertMatrix(axisInv);  
+  gpu_voxels::Matrix4f extrinsicOrig = extrinsic * axisInv;  
+
+  // printf("coordinates.x = %f -> uint_coords.x = %u \n", coordinates.x, uint_coords.x);
+ 
+  //Vector4f temp =  extrinsic * _coords;
+  Matrix4f temp;
+  extrinsic.invertMatrix(temp);
+  Vector4f temp2 = temp * _coords;
+  //Vector4f temp =  extrinsicOrig * _coords;
+  return temp2.z;*/
+  gpu_voxels::Matrix4f axis( 1, 0, 0, 2.56,
+                      0, 1, 0, 2.56,
+                      0, 0, 1, 1.0,
+                      0, 0, 0, 1);
+  gpu_voxels::Matrix4f axisT; 
+  axis.invertMatrix(axisT);
+  
+   Vector4f temp =  extrinsic * axisT * _coords;
+  // Vector4f temp =  extrinsic * _coords;
+  return temp.z;
+
+}
+
+
+__device__ __host__    __forceinline__
+bool chkVoxelinDepth(const Matrix4f extrInv, const Vector3f uint_coords, float* const depth, const uint16_t depth_width, 
+                    const uint16_t depth_height, const int x, const int y)
+{
+  if(x>0 && y>0 && x<depth_width && y<depth_height)
+  {
+    float depthValue = depth[y * depth_width + x];
+    if(depthValue > 0) 
+    {
+      float dist = calculateDistCamtoVox(extrInv, uint_coords);
+      dist = dist-depthValue;
+      if(dist < 0.05f && dist > -0.05f) return true;
+      else return false;
+    }
+    else return false;
+  }
+  else return false;
+}
+
+
+__device__    __forceinline__
+bool chkVoxelinDepth(const float recon_threshold, const Matrix4f extrInv, const Vector3f uint_coords, float* const depth,
+                    const uint16_t depth_width, const int x, const int y, bool condition)
+{
+  float depthValue = depth[y * depth_width + x];
+  float dist = calculateDistCamtoVox(extrInv, uint_coords);
+  float t = dist-depthValue;
+  return condition?(t < recon_threshold && t > -recon_threshold) & (depthValue > 0):false;
+}
+
+__device__ __host__    __forceinline__
+int chkMask(int oldBit, uint8_t maskid0, uint8_t maskid1, uint8_t maskid2)
+{
+  bool useOld = (oldBit != -1 && oldBit != 1)?true:false;
+  
+  // two maskid are zero
+  if(maskid0 != 0 && maskid1 == 0 && maskid2 == 0) return (maskid0 == 0)?1:maskid0;
+  else if(maskid0 == 0 && maskid1 != 0 && maskid2 == 0) return (maskid1 == 0)?1:maskid1;
+  else if(maskid0 == 0 && maskid1 == 0 && maskid2 != 0) return (maskid2 == 0)?1:maskid2;
+  // one mask id is zero
+  else if(maskid0 == 0 && maskid1 != 0 && maskid2 != 0){
+    if(maskid1 == maskid2) return maskid1;
+    else if(useOld && maskid1 == oldBit) return maskid1;
+    else if(useOld && maskid2 == oldBit) return maskid2;
+    else return -1; // two are different and oldBit is not in maskid
+  }
+  else if(maskid0 != 0 && maskid1 == 0 && maskid2 != 0){
+    if(maskid0 == maskid2) return maskid0;
+    else if(useOld && maskid0 == oldBit) return maskid0;
+    else if(useOld && maskid2 == oldBit) return maskid2;
+    else return -1; // two are different and oldBit is not in maskid
+  }
+  else if(maskid0 != 0 && maskid1 != 0 && maskid2 == 0){
+    if(maskid0 == maskid1) return maskid0;
+    else if(useOld && maskid0 == oldBit) return maskid0;
+    else if(useOld && maskid1 == oldBit) return maskid1;
+    else return -1; // two are different and oldBit is not in maskid
+  }
+  // three maskid are not zero
+  else if(maskid0 != 0 && maskid1 != 0 && maskid2 != 0){
+    if(maskid0 == maskid1 && maskid1 == maskid2) return maskid0;
+    else if(maskid0 == maskid1 && maskid1 != maskid2) return maskid0;
+    else if(maskid0 == maskid2 && maskid1 != maskid2) return maskid0;
+    else if(maskid1 == maskid2 && maskid0 != maskid2) return maskid1;
+    else if(useOld && maskid0 == oldBit) return maskid0;
+    else if(useOld && maskid1 == oldBit) return maskid1;
+    else if(useOld && maskid2 == oldBit) return maskid2;
+    else return -1; // three are different and oldBit is not in maskid
+  }
+  else return -1;
+}
+// do added end
+
 
 //! Partitioning of continuous data into voxels. Maps float coordinates to dicrete voxel coordinates.
 __device__ __host__     __forceinline__
@@ -433,6 +571,33 @@ __global__
 void kernelInsertGlobalPointCloud(Voxel* voxelmap, const Vector3ui map_dim, const float voxel_side_length,
                                   const Vector3f* points, const std::size_t sizePoints, const BitVoxelMeaning voxel_meaning,
                                   bool *points_outside_map);
+// do added
+
+__global__
+void kernelReconVoxelToDepthTriple(BitVectorVoxel* voxelmap, const Vector3ui dims, const float voxel_side_length, float* const depth0,float* const depth1,float* const depth2, uint8_t* const mask0,
+                                uint8_t* const mask1, uint8_t* const mask2, gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2, const uint16_t depth_width,
+                                const uint16_t depth_height, const uint16_t mask_width, const float scale);
+
+__global__
+void kernelReconVoxelToDepthTriple(BitVectorVoxel* voxelmap, const Vector3ui dims, const float voxel_side_length, float* const depth0,float* const depth1,float* const depth2,
+                                gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2, const uint16_t depth_width,
+                                const uint16_t depth_height);
+
+__global__
+void kernelReconWithPreprocess(BitVectorVoxel* voxelmap, float* const depth0,float* const depth1,float* const depth2, uint8_t* const mask0,
+                                uint8_t* const mask1, uint8_t* const mask2, gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2);
+
+__global__
+void kernelReconWithPreprocess(BitVectorVoxel* voxelmap, float* const depth0,float* const depth1,float* const depth2, gpu_voxels::Matrix4f const intrInv0, 
+                              gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                              gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2);
+
+__global__
+void kernelGetVoxelRaw(BitVectorVoxel* voxelmap, unsigned char* d_VoxeRaw);
+// do added end
 
 template<class Voxel>
 __global__

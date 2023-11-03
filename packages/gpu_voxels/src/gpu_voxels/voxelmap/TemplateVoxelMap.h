@@ -42,6 +42,7 @@
  * @namespace gpu_voxels::voxelmap
  * Contains implementation of VoxelMap Datastructure and according operations
  */
+
 namespace gpu_voxels {
 namespace voxelmap {
 
@@ -144,6 +145,34 @@ public:
 
   virtual void insertPointCloud(const Vector3f* d_points, uint32_t size, const BitVoxelMeaning voxel_meaning);
 
+  // do added
+
+  virtual void ReconVoxelToDepthTriple(float* const depthArr0, float* const depthArr1, float* const depthArr2, uint8_t* const maskArr0, uint8_t* const maskArr1, uint8_t* const maskArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2,
+                                gpu_voxels::Matrix4f const extrInvArr0, gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height,
+                                const uint16_t mask_width, const float scale);
+
+  virtual void ReconVoxelToDepthTriple(float* const depthArr0, float* const depthArr1, float* const depthArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2, gpu_voxels::Matrix4f const extrInvArr0,
+                                gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height);
+
+  virtual void setConstMemory(const uint16_t depth_width, const uint16_t depth_height, const uint16_t mask_width, const float scale);
+
+  virtual void ReconstructionWithPreprocess(float* const depthArr0, float* const depthArr1, float* const depthArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2, gpu_voxels::Matrix4f const extrInvArr0,
+                                gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height);
+
+  virtual void ReconstructionWithPreprocess(float* const depthArr0, float* const depthArr1, float* const depthArr2, uint8_t* const maskArr0, uint8_t* const maskArr1, uint8_t* const maskArr2, gpu_voxels::Matrix4f const intrInvArr0,
+                                gpu_voxels::Matrix4f const intrInvArr1, gpu_voxels::Matrix4f const intrInvArr2,
+                                gpu_voxels::Matrix4f const extrInvArr0, gpu_voxels::Matrix4f const extrInvArr1, gpu_voxels::Matrix4f const extrInvArr2, const uint16_t depth_width, const uint16_t depth_height,
+                                const uint16_t mask_width, const float scale);
+
+  virtual void updateReconThresh(float thresh);
+
+  virtual void updateVisUnknown(bool isVisUnknown);
+
+  virtual void getVoxelRaw(unsigned char* d_VoxelRaw);
+  // do added
 
   virtual void insertCoordinateList(const std::vector<Vector3ui> &coordinates, const BitVoxelMeaning voxel_meaning);
 
@@ -289,6 +318,8 @@ protected:
   void insertDilatedCoordinateList(Voxel* d_dest_data, const Vector3ui* d_src_coordinates, uint32_t size, const BitVoxelMeaning voxel_meaning);
 
   void insertClosedCoordinateList(const Vector3ui* d_coordinates, uint32_t size, const BitVoxelMeaning insert_voxel_meaning, float erode_threshold, float occupied_threshold, Voxel* d_buffer);
+
+
 };
 
 } // end of namespace voxelmap

@@ -98,6 +98,7 @@
 #include <gpu_visualization/SharedMemoryManagerPrimitiveArrays.h>
 #include <gpu_visualization/SharedMemoryManagerVisualizer.h>
 
+#include <map>
 // todo remove this
 static const bool USE_BIT_VOXEL_MAP = false;
 
@@ -148,6 +149,9 @@ enum MENU_ITEM
   MENU_VISIBILITYTRIGGER_DEACTIVATED,
   MENU_NONSENSE
 };
+
+// do added
+int initialBit=6;
 
 class Visualizer
 {
@@ -255,6 +259,8 @@ public:
   std::vector<std::string> getVoxelListNames();
   std::vector<std::string> getOctreeNames();
   std::vector<std::string> getPrimitiveArrayNames();
+
+
 private:
 ////////////////////////////////////////private functions//////////////////////////////////////////
 
@@ -434,6 +440,12 @@ private:
   bool m_drawCameraInfo;
 
   std::string m_clickedVoxelInfo;
+
+  // do added
+  std::map<int,std::string> maskDecodeMap;
+  void MaskDecoder();
+  int filteredMaskId[50]={0,24,25,26,27,28,32,39,40,41,42,43,44,45,56,57,58,59,60,62,63,64,65,66,67,73,74,76,81,85,86,87,92,93,95,108,109,110,111,112,113,114,115,118,120,121,122,127,131,132};
+  
 };
 
 } // end of namespace visualization

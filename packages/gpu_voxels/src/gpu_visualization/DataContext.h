@@ -58,29 +58,67 @@ public:
     p.first = p.second = glm::vec4(1.f, 1.f, 0.f, 1.f);
     m_colors.push_back(p);/*color for voxel type eBVM_FREE yellow*/
 
-    p.first = p.second = glm::vec4(0.f, 1.f, 0.f, 1.f);
-    m_colors.push_back(p);/*color for voxel type eBVM_OCCUPIED green*/
+    p.first = p.second = glm::vec4(1.f, 1.f, 1.f, 1.f);
+    m_colors.push_back(p);/*color for voxel type eBVM_OCCUPIED white*/
 
     p.first = p.second = glm::vec4(1.f, 0.f, 0.f, 1.f);
     m_colors.push_back(p);/*color for voxel type eBVM_COLLISION red*/
 
     p.first = p.second = glm::vec4(1.f, 0.f, 1.f, 1.f);
     m_colors.push_back(p);/*color for voxel type eBVM_UNKNOWN magenta*/
+    
 
+    colorPair c;
+    c.first = c.second = glm::vec4(1.f, 1.f, 1.f, 1.f); //0.nothing white
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(1.f, 1.f, 1.f, 1.f); //0.nothing white
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(1.f, 0.f, 0.f, 1.f); //1.chair red
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.9f, 0.6f, 0.6f, 1.f); //2.tv tongue
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(1.f, 1.f, 0.f, 1.f); //3.person yellow
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.f, 1.f, 1.f, 1.f); //4.backpack skyblue
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(1.f, 0.f, 1.f, 1.f); //5.suitcase pink
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.5f, 0.f, 1.f, 1.f); //6.handbag blue purple
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.f, 1.0f, 0.f, 1.f); //7.dining table green
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(1.f, 0.5f, 0.02f, 1.f); //8.refrigerator pyridiumorange
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.65f, 1.f, 0.5f, 1.f); //9.couch yellow-brightgreen
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.65f, 0.5f, 0.5f, 1.f); //10.laptop skyblue
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.f, 0.f, 1.f, 1.f); //11.keyboard blue
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.f, 0.4f, 0.f, 1.f); //12.book darkgreen
+    m_colorsMask.push_back(c);
+    c.first = c.second = glm::vec4(0.13f, 0.75f, 0.62f, 1.f); //13.person emerald city
+    m_colorsMask.push_back(c);
 
     // swept volume colors blend altering fashion from yellow to blue,
     // and from
     float increment = 1.0 / float(eBVM_SWEPT_VOLUME_END - eBVM_SWEPT_VOLUME_START);
     float change = 0.0;
     size_t step = 0;
-    for(size_t i = eBVM_SWEPT_VOLUME_START; i <= eBVM_SWEPT_VOLUME_END; ++i)
+    for(size_t i = eBVM_SWEPT_VOLUME_START; i <= eBVM_SWEPT_VOLUME_END; ++i) //4~254 
     {
-      change = step * increment;
+      if(i==10) {
+        p.first = p.second = glm::vec4(1.f, 1.f, 0.f, 1.f); //yellow for person
+        ++step;
+        m_colors.push_back(p);
+        continue;
+      }
+      change = step * increment; //swept volume 단계 1/n
       if(step%2)
       {
-        p.first = p.second = glm::vec4(1.f - change, 1.f, 0.f + change, 1.f); // yellow to light green
+        p.first = p.second = glm::vec4(1.f - change, 1.f, 0.f + change, 1.f); // yellow to light green to light blue
       }else{
-        p.first = p.second = glm::vec4(1.f - change, 0.f, 0.f + change, 1.f); // red to blue
+        p.first = p.second = glm::vec4(1.f - change, 0.f, 0.f + change, 1.f); // red to purple to blue
       }
       ++step;
       m_colors.push_back(p);
@@ -168,6 +206,7 @@ public:
 
   // contains the colors for each type
   thrust::host_vector<colorPair> m_colors;
+  thrust::host_vector<colorPair> m_colorsMask;
   // the OpenGL buffer for this data structure
   GLuint m_vbo;
   // indicates if the vbo may be drawn right now

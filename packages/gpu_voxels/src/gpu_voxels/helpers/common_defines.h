@@ -33,10 +33,10 @@ namespace gpu_voxels {
 const uint32_t cMAX_NR_OF_DEVICES = 10;
 //TODO: add define to allow 512^3 sized voxelmaps
 //#if __CUDACC_VER_MAJOR__ > 2
-//const uint32_t cMAX_NR_OF_BLOCKS = 3*65536; //512^3 / 1024 = 128K
+const uint32_t cMAX_NR_OF_BLOCKS = 3*65536; //512^3 / 1024 = 128K
 //#else
 //TODO: remove all usages of cMAX_NR_OF_BLOCKS for array dimensions, use actual runtime dimensions instead
-const uint32_t cMAX_NR_OF_BLOCKS = 65535;
+// const uint32_t cMAX_NR_OF_BLOCKS = 65535;
 //#endif
 const uint32_t cMAX_THREADS_PER_BLOCK = 1024;
 
@@ -44,7 +44,7 @@ const uint32_t cMAX_THREADS_PER_BLOCK = 1024;
  * \brief BIT_VECTOR_LENGTH determines the amount of identifieable subvolumes in BitVoxels
  * The BitVoxelMeaning is stored in a Bit-Vecor of this lengths.
  */
-static const std::size_t BIT_VECTOR_LENGTH = 256;
+static const std::size_t BIT_VECTOR_LENGTH = 64; //256
 /*!
  * the BitVoxelMeaning determines the belonging of the voxel.
  */
@@ -55,12 +55,13 @@ enum BitVoxelMeaning
   eBVM_COLLISION          = 2,
   eBVM_UNKNOWN            = 3,
   eBVM_SWEPT_VOLUME_START = 4,
-  eBVM_SWEPT_VOLUME_END   = 254,
+  eBVM_SWEPT_VOLUME_END   = 60,
   // Those can be used to update probabilisitc voxels via insertPointCloud():
   eBVM_MAX_FREE_PROB      = 4,
-  eBVM_UNCERTAIN_OCC_PROB = 129,
-  eBVM_MAX_OCC_PROB       = 254,
-  eBVM_UNDEFINED          = 255
+  eBVM_UNCERTAIN_OCC_PROB = 61,//129
+  eBVM_MAX_OCC_PROB       = 62,//254
+  eBVM_UNDEFINED          = 63,//255
+
 };
 
 enum MapType {

@@ -66,6 +66,20 @@ void BitVoxel<length>::insert(const BitVoxelMeaning voxel_meaning)
 
 template<std::size_t length>
 __host__ __device__
+void BitVoxel<length>::clear(const BitVoxelMeaning voxel_meaning)
+{
+  m_bit_vector.clearBit(voxel_meaning);
+}
+
+template<std::size_t length>
+__host__ __device__
+bool BitVoxel<length>::chkZero()
+{
+  return m_bit_vector.isZero();
+}
+
+template<std::size_t length>
+__host__ __device__
 BitVoxel<length> BitVoxel<length>::reduce(const BitVoxel<length> voxel, const BitVoxel<length> other_voxel)
 {
   BitVoxel<length> res;

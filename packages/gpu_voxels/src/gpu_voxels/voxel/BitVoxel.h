@@ -61,6 +61,12 @@ public:
   void insert(const BitVoxelMeaning voxel_meaning);
 
   __host__ __device__
+  void clear(const BitVoxelMeaning voxel_meaning);
+
+  __host__ __device__
+  bool chkZero();
+
+  __host__ __device__
   static BitVoxel<length> reduce(const BitVoxel<length> voxel, const BitVoxel<length> other_voxel);
 
   struct reduce_op //: public thrust::binary_function<BitVoxelMeaningFlags, BitVoxelMeaningFlags, BitVoxelMeaningFlags>
@@ -105,6 +111,7 @@ public:
 
 protected:
   BitVector<length> m_bit_vector;
+
 };
 
 } // end of ns

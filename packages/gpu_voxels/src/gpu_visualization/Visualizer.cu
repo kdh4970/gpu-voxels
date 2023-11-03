@@ -57,9 +57,10 @@ Visualizer::Visualizer()
   m_drawOctreeText = true;
   m_drawPrimitiveArrayText = true;
   m_drawTypeText = false;
-  m_drawClickedVoxelInfo = false;
+  m_drawClickedVoxelInfo = true;
   m_drawCameraInfo = false;
   m_clickedVoxelInfo = "no Voxel clicked yet";
+  MaskDecoder();
 }
 
 Visualizer::~Visualizer()
@@ -75,6 +76,143 @@ Visualizer::~Visualizer()
   {
     delete *it;
   }
+}
+// do added
+void Visualizer::MaskDecoder(){
+  // original idx                  new idx
+  maskDecodeMap[0]="person";//        0
+  maskDecodeMap[1]="bicycle";
+  maskDecodeMap[2]="car";
+  maskDecodeMap[3]="motorcycle";
+  maskDecodeMap[4]="airplane";
+  maskDecodeMap[5]="bus";
+  maskDecodeMap[6]="train";
+  maskDecodeMap[7]="truck";
+  maskDecodeMap[8]="boat";
+  maskDecodeMap[9]="traffic light";
+  maskDecodeMap[10]="fire hydrant";
+  maskDecodeMap[11]="stop sign";
+  maskDecodeMap[12]="parking meter";
+  maskDecodeMap[13]="bench";
+  maskDecodeMap[14]="bird";
+  maskDecodeMap[15]="cat";
+  maskDecodeMap[16]="dog";
+  maskDecodeMap[17]="horse";
+  maskDecodeMap[18]="sheep";
+  maskDecodeMap[19]="cow";
+  maskDecodeMap[20]="elephant";
+  maskDecodeMap[21]="bear";
+  maskDecodeMap[22]="zebra";
+  maskDecodeMap[23]="giraffe";
+  maskDecodeMap[24]="backpack";//     1
+  maskDecodeMap[25]="umbrella";//     2
+  maskDecodeMap[26]="handbag";//      3
+  maskDecodeMap[27]="tie";//          4
+  maskDecodeMap[28]="suitcase";//     5
+  maskDecodeMap[29]="frisbee";
+  maskDecodeMap[30]="skis";
+  maskDecodeMap[31]="snowboard";
+  maskDecodeMap[32]="sports ball";//  6
+  maskDecodeMap[33]="kite";
+  maskDecodeMap[34]="baseball bat";
+  maskDecodeMap[35]="baseball glove";
+  maskDecodeMap[36]="skateboard";
+  maskDecodeMap[37]="surfboard";
+  maskDecodeMap[38]="tennis racket";
+  maskDecodeMap[39]="bottle";//       7
+  maskDecodeMap[40]="wine glass";//   8
+  maskDecodeMap[41]="cup";//          9
+  maskDecodeMap[42]="fork";//         10
+  maskDecodeMap[43]="knife";//        11
+  maskDecodeMap[44]="spoon";//        12
+  maskDecodeMap[45]="bowl";//         13
+  maskDecodeMap[46]="banana";
+  maskDecodeMap[47]="apple";
+  maskDecodeMap[48]="sandwich";
+  maskDecodeMap[49]="orange";
+  maskDecodeMap[50]="broccoli";
+  maskDecodeMap[51]="carrot";
+  maskDecodeMap[52]="hot dog";
+  maskDecodeMap[53]="pizza";
+  maskDecodeMap[54]="donut";
+  maskDecodeMap[55]="cake";
+  maskDecodeMap[56]="chair";//        14
+  maskDecodeMap[57]="couch";//        15
+  maskDecodeMap[58]="potted plant";// 16
+  maskDecodeMap[59]="bed";//          17
+  maskDecodeMap[60]="dining table";// 18
+  maskDecodeMap[61]="toilet";
+  maskDecodeMap[62]="tv";//           19
+  maskDecodeMap[63]="laptop";//       20
+  maskDecodeMap[64]="mouse";//        21
+  maskDecodeMap[65]="remote";//       22
+  maskDecodeMap[66]="keyboard";//     23
+  maskDecodeMap[67]="cell phone";//   24
+  maskDecodeMap[68]="microwave";
+  maskDecodeMap[69]="oven";
+  maskDecodeMap[70]="toaster";
+  maskDecodeMap[71]="sink";
+  maskDecodeMap[72]="refrigerator";
+  maskDecodeMap[73]="book";//         25
+  maskDecodeMap[74]="clock";//        26
+  maskDecodeMap[75]="vase";
+  maskDecodeMap[76]="scissors";//     27
+  maskDecodeMap[77]="teddy bear";
+  maskDecodeMap[78]="hair drier";
+  maskDecodeMap[79]="toothbrush";
+  maskDecodeMap[80]="banner";
+  maskDecodeMap[81]="blanket";//      28
+  maskDecodeMap[82]="bridge";
+  maskDecodeMap[83]="cardboard";
+  maskDecodeMap[84]="counter";
+  maskDecodeMap[85]="curtain";//      29
+  maskDecodeMap[86]="door-stuff";//   30
+  maskDecodeMap[87]="floor-wood";//   31
+  maskDecodeMap[88]="flower";
+  maskDecodeMap[89]="fruit";
+  maskDecodeMap[90]="gravel";
+  maskDecodeMap[91]="house";
+  maskDecodeMap[92]="light";//        32
+  maskDecodeMap[93]="mirror-stuff";// 33
+  maskDecodeMap[94]="net";
+  maskDecodeMap[95]="pillow";//       34
+  maskDecodeMap[96]="platform";
+  maskDecodeMap[97]="playingfield";
+  maskDecodeMap[98]="railroad";
+  maskDecodeMap[99]="river";
+  maskDecodeMap[100]="road";
+  maskDecodeMap[101]="roof";
+  maskDecodeMap[102]="sand";
+  maskDecodeMap[103]="sea";
+  maskDecodeMap[104]="shelf";
+  maskDecodeMap[105]="snow";
+  maskDecodeMap[106]="stairs";
+  maskDecodeMap[107]="tent";
+  maskDecodeMap[108]="towel";//       35
+  maskDecodeMap[109]="wall-brick";//  36
+  maskDecodeMap[110]="wall-stone";//  37
+  maskDecodeMap[111]="wall-tile";//   38
+  maskDecodeMap[112]="wall-wood";//   39
+  maskDecodeMap[113]="water-other";// 40
+  maskDecodeMap[114]="window-blind";//41
+  maskDecodeMap[115]="window-other";//42
+  maskDecodeMap[116]="tree-merged";
+  maskDecodeMap[117]="fence-merged";
+  maskDecodeMap[118]="ceiling-merged";//43
+  maskDecodeMap[119]="sky-other-merged";
+  maskDecodeMap[120]="cabinet-merged";//44
+  maskDecodeMap[121]="table-merged";// 45
+  maskDecodeMap[122]="floor-other-merged";//46
+  maskDecodeMap[123]="pavement-merged";
+  maskDecodeMap[124]="mountain-merged";
+  maskDecodeMap[125]="grass-merged";
+  maskDecodeMap[126]="dirt-merged";
+  maskDecodeMap[127]="paper-merged";//47
+  maskDecodeMap[128]="food-other-merged";
+  maskDecodeMap[129]="building-other-merged";
+  maskDecodeMap[130]="rock-merged";
+  maskDecodeMap[131]="wall-other-merged";//48
+  maskDecodeMap[132]="rug-merged";//   49
 }
 
 std::vector<std::string> Visualizer::getVoxelMapNames()
@@ -613,7 +751,7 @@ void Visualizer::registerPrimitiveArray(uint32_t index, std::string prim_array_n
  * Fills the VBO from a VoxelmapContext with the translation_scale vectors.
  * @return: returns false if the VBO doesn't contain the whole map(view).
  */
-bool Visualizer::fillGLBufferWithoutPrecounting(VoxelmapContext* context)
+bool Visualizer::fillGLBufferWithoutPrecounting(VoxelmapContext* context) //*****************vbo 만들기
 {
   updateStartEndViewVoxelIndices();
   thrust::device_vector<uint32_t> indices(context->m_num_voxels_per_type.size(), 0);
@@ -635,18 +773,18 @@ bool Visualizer::fillGLBufferWithoutPrecounting(VoxelmapContext* context)
 
     fill_vbo_without_precounting<<<context->m_num_blocks, context->m_threads_per_block>>>(
         /**/
-        (BitVectorVoxel*) context->m_voxelMap->getVoidDeviceDataPtr(),/**/
-        context->m_voxelMap->getDimensions(),/**/
-        m_cur_context->m_dim_svoxel,/**/
-        m_cur_context->m_view_start_voxel_pos,/**/
-        m_cur_context->m_view_end_voxel_pos,/**/
-        context->m_occupancy_threshold,/**/
+        (BitVectorVoxel*) context->m_voxelMap->getVoidDeviceDataPtr(),/**/ //voxelMap //이거 type마다 다르게 만들게끔 되어있어.
+        context->m_voxelMap->getDimensions(),/**///dim_voxel_map
+        m_cur_context->m_dim_svoxel,/**/ //dim_super_voxel
+        m_cur_context->m_view_start_voxel_pos,/**///start_voxel
+        m_cur_context->m_view_end_voxel_pos,/**///end_voxel
+        context->m_occupancy_threshold,/**///occupancy_threshold
         vbo_ptr,/**/
-        thrust::raw_pointer_cast(context->m_d_vbo_offsets.data()),/**/
-        thrust::raw_pointer_cast(context->m_d_vbo_segment_voxel_capacities.data()),/**/
-        thrust::raw_pointer_cast(indices.data()),/**/
-        thrust::raw_pointer_cast(m_cur_context->m_d_draw_types.data()),/**/
-        thrust::raw_pointer_cast(m_cur_context->m_d_prefixes.data()));/**/
+        thrust::raw_pointer_cast(context->m_d_vbo_offsets.data()),/**/ //vbo_offsets
+        thrust::raw_pointer_cast(context->m_d_vbo_segment_voxel_capacities.data()),/**/ //vbo_limits
+        thrust::raw_pointer_cast(indices.data()),/**/                                 //write_index
+        thrust::raw_pointer_cast(m_cur_context->m_d_draw_types.data()),/**/ //draw_voxel_type
+        thrust::raw_pointer_cast(m_cur_context->m_d_prefixes.data()));/**/  //prefixes
     CHECK_CUDA_ERROR();
 
   }
@@ -1035,7 +1173,7 @@ uint32_t Visualizer::getDataPositionFromColorMap(const int32_t c_x, const int32_
  * Draws all the data, which is currently hold by this context.
  *
  */
-void Visualizer::drawDataContext(DataContext* context)
+void Visualizer::drawDataContext(DataContext* context)//한개의 octree, voxel_map단위로..
 {
   if (!context->m_vbo_draw_able)
   {
@@ -1062,7 +1200,7 @@ void Visualizer::drawDataContext(DataContext* context)
   {
     uint32_t num_primitive_to_render = context->m_num_voxels_per_type[i];
 
-    if (num_primitive_to_render && m_cur_context->m_draw_types[context->m_types_segment_mapping[i]])
+    if (num_primitive_to_render && m_cur_context->m_draw_types[context->m_types_segment_mapping[i]])//m_draw_types toggle 되었는지.
     {
       // if collision type will be drawn set the deep function so that they will be drawn
       //over other triangles with the same z value.
@@ -1092,11 +1230,14 @@ void Visualizer::drawDataContext(DataContext* context)
       uint8_t color_index = typeToColorIndex(context->m_types_segment_mapping[i]);
       if (m_cur_context->m_draw_filled_triangles)
       {
-        glUniform4fv(start_color_id, 1, glm::value_ptr(context->m_colors[color_index].first));
-        glUniform4fv(end_color_id, 1, glm::value_ptr(context->m_colors[color_index].second));
+        // do added
+        glUniform4fv(start_color_id, 1, glm::value_ptr(context->m_colors[color_index].first));//배열로 넘기기. float 4개 배열로.
+        // glUniform4fv(start_color_id, 1, glm::value_ptr(context->m_colorsMask[color_index].first));
+        glUniform4fv(end_color_id, 1, glm::value_ptr(context->m_colors[color_index].second)); //어차피 glm::vec4로 들어감.
+        // glUniform4fv(end_color_id, 1, glm::value_ptr(context->m_colorsMask[color_index].second)); 
 
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        context->m_default_prim->draw(num_primitive_to_render, m_cur_context->m_lighting);
+        context->m_default_prim->draw(num_primitive_to_render, m_cur_context->m_lighting); //cuboid 나 sphere primitive type : m_default_prim
         ExitOnGLError("ERROR! Couldn't draw the filled triangles.");
       }
 
@@ -1235,7 +1376,7 @@ void Visualizer::drawPrimitivesFromSharedMem()
     {
       if(m_cur_context->m_prim_arrays[prim_array_num]->m_draw_context)
       {
-        PrimitiveArrayContext* con = m_cur_context->m_prim_arrays[prim_array_num];
+        PrimitiveArrayContext* con = m_cur_context->m_prim_arrays[prim_array_num]; //여기 con
         // only read the buffer again if it has changed
         if(m_shm_manager_primitive_arrays->hasPrimitiveBufferChanged(prim_array_num))
         {
@@ -1258,7 +1399,7 @@ void Visualizer::drawPrimitivesFromSharedMem()
             struct cudaGraphicsResource* cuda_res;
             HANDLE_CUDA_ERROR(
                 cudaGraphicsGLRegisterBuffer(&cuda_res, con->m_vbo,
-                                             cudaGraphicsRegisterFlagsWriteDiscard));
+                                             cudaGraphicsRegisterFlagsWriteDiscard)); 
             glm::vec4 *vbo_ptr;
             size_t num_bytes;
             HANDLE_CUDA_ERROR(cudaGraphicsMapResources(1, &(cuda_res), 0));
@@ -1606,18 +1747,18 @@ void Visualizer::renderFunction(void)
         m_cur_context->m_voxel_lists[i]->m_has_draw_type_flipped = true;
 
       m_cur_context->m_camera->setViewChanged(true);
-      copyDrawTypeToDevice();
+      copyDrawTypeToDevice(); //여기서 m_prefix 계산
     }
   }
 
-  for (uint32_t i = 0; i < m_cur_context->m_voxel_maps.size(); i++)
+  for (uint32_t i = 0; i < m_cur_context->m_voxel_maps.size(); i++) //***********render voxelmap*******************/
   {
     if (m_cur_context->m_voxel_maps[i]->m_voxelMap != NULL && m_cur_context->m_voxel_maps[i]->m_draw_context)
     {
       if (m_cur_context->m_camera->hasViewChanged() || m_shm_manager_voxelmaps->hasVoxelMapDataChanged(i))
       {/*only update the VBO if the view has changed or new data is available*/
         /////////////////////////////////// fill up the vbo /////////////////////////////////////////////
-        bool suc = fillGLBufferWithoutPrecounting(m_cur_context->m_voxel_maps[i]);
+        bool suc = fillGLBufferWithoutPrecounting(m_cur_context->m_voxel_maps[i]); //vbo 만들고
         if (suc)
         {/*only if the map was drawn completely ...*/
           m_shm_manager_voxelmaps->setVoxelMapDataChangedToFalse(i);
@@ -1626,7 +1767,7 @@ void Visualizer::renderFunction(void)
         set_view_to_false = set_view_to_false && suc;
       }
 ////////////////////////////////// draw the maps //////////////////////////////////////////
-      drawDataContext(m_cur_context->m_voxel_maps[i]);
+      drawDataContext(m_cur_context->m_voxel_maps[i]); //render.
     }
   }
   m_cur_context->m_camera->setViewChanged(!set_view_to_false);
@@ -1682,7 +1823,7 @@ void Visualizer::renderFunction(void)
 
   if (m_max_fps != 0 && m_delta_time < 1000.f / m_max_fps)
   {
-    float wait = 1000.f / m_max_fps - m_delta_time;
+    int wait = 1000 / m_max_fps - m_delta_time;
     m_delta_time += wait;
     boost::this_thread::sleep(boost::posix_time::milliseconds(wait));
   }
@@ -2562,7 +2703,7 @@ void Visualizer::copyDrawTypeToDevice()
   m_cur_context->m_d_draw_types = m_cur_context->m_draw_types;
   m_cur_context->m_prefixes.resize(m_cur_context->m_draw_types.size());
   thrust::exclusive_scan(m_cur_context->m_draw_types.begin(), m_cur_context->m_draw_types.end(),
-                         m_cur_context->m_prefixes.begin());
+                         m_cur_context->m_prefixes.begin()); //output
   m_cur_context->m_d_prefixes = m_cur_context->m_prefixes;
 
 }
@@ -2737,6 +2878,17 @@ std::stringstream returnString;
       gpu_voxels::voxelmap::BitVectorVoxelMap::Voxel voxel;
       cudaMemcpy(&voxel, gpu_voxels::voxelmap::getVoxelPtr(vm->getDeviceDataPtr(), vm->getDimensions(), n_pos), sizeof(gpu_voxels::voxelmap::BitVectorVoxelMap::Voxel), cudaMemcpyDeviceToHost);
       returnString << "Voxel info: Bitvektor = " << voxel << std::endl;
+      // do added
+      // find 1 in bitvector "voxel" and print bit's index
+      for (int i = 0; i < 64; i++) {
+        if (voxel.bitVector().getBit(i) == 1 && i != 1) {
+          returnString << "Enabled Bit index: " << i; returnString << " / Mask Decode: " << maskDecodeMap[filteredMaskId[i-(initialBit)]] << std::endl;
+        }
+        else if(voxel.bitVector().getBit(i) == 1 && i == 1){
+          returnString << "Enabled Bit index: " << i; returnString << " / Mask Decode: " << "unknown" << std::endl;
+        }
+      }
+
 
     } else if (vm_context->m_voxelMap->getMapType() == MT_PROBAB_VOXELMAP) {
       gpu_voxels::voxelmap::ProbVoxelMap* vm = static_cast<gpu_voxels::voxelmap::ProbVoxelMap *>(vm_context->m_voxelMap);

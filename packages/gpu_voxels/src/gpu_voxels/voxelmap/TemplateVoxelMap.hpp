@@ -819,7 +819,14 @@ void TemplateVoxelMap<BitVectorVoxel>::ReconstructionWithPreprocess(float* const
   // std::cout<< "++++++++++++++++++++++++++++++++++++++++"<< std::endl;
   HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
   // kernelReconWithPreprocess<<<num_blocks, threads_per_block>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height);
-  kernelReconWithPreprocess<<<131072, 512>>>(m_dev_data, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+  if(m_dim.x == 256 and m_dim.y == 256)
+  {
+    kernelReconWithPreprocess<<<num_blocks, threads_per_block>>>(m_dev_data, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+  }
+  else if(m_dim.x == 512 and m_dim.y == 512)
+  {
+    kernelReconWithPreprocess<<<131072, 512>>>(m_dev_data, depthArr0, depthArr1, depthArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+  }
 }
 
 
@@ -843,8 +850,15 @@ void TemplateVoxelMap<BitVectorVoxel>::ReconstructionWithPreprocess(float* const
   computeLinearLoad(size, &num_blocks, &threads_per_block);
   HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
   // kernelReconWithPreprocess<<<num_blocks, threads_per_block>>>(m_dev_data, m_dim, m_voxel_side_length, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2, depth_width, depth_height, mask_width, scale);
-  kernelReconWithPreprocess<<<131072, 512>>>(m_dev_data, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
-
+  if(m_dim.x == 256 and m_dim.y == 256)
+  {
+    kernelReconWithPreprocess<<<num_blocks, threads_per_block>>>(m_dev_data, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+  }
+  else if(m_dim.x == 512 and m_dim.y == 512)
+  {
+    kernelReconWithPreprocess<<<131072, 512>>>(m_dev_data, depthArr0, depthArr1, depthArr2, maskArr0, maskArr1, maskArr2, intrInvArr0, intrInvArr1, intrInvArr2, extrInvArr0, extrInvArr1, extrInvArr2);
+  }
+  HANDLE_CUDA_ERROR(cudaDeviceSynchronize());
 }
 
 template<class Voxel>
@@ -876,7 +890,14 @@ void TemplateVoxelMap<Voxel>::getVoxelRaw(unsigned char* d_VoxelRaw)
 template<>
 void TemplateVoxelMap<BitVectorVoxel>::getVoxelRaw(unsigned char* d_VoxelRaw)
 {
-  kernelGetVoxelRaw<<<131072, 512>>>(m_dev_data,d_VoxelRaw);
+  if(m_dim.x == 256 and m_dim.y == 256)
+  {
+    uint32_t num_blocks, threads_per_block;
+    uint32_t size = m_dim.x*m_dim.y*m_dim.z;
+    computeLinearLoad(size, &num_blocks, &threads_per_block);
+    kernelGetVoxelRaw<<<num_blocks, threads_per_block>>>(m_dev_data,d_VoxelRaw);
+  }
+  else if(m_dim.x == 512 and m_dim.y == 512) kernelGetVoxelRaw<<<131072, 512>>>(m_dev_data,d_VoxelRaw);
 }
 
 // do added end

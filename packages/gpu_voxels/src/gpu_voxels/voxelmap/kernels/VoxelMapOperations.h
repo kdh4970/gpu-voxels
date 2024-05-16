@@ -596,7 +596,9 @@ void kernelReconWithPreprocess(BitVectorVoxel* voxelmap, float* const depth0,flo
                               gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2);
 
 __global__
-void kernelGetVoxelRaw(BitVectorVoxel* voxelmap, unsigned char* d_VoxeRaw);
+void kernelGetVoxelRaw(BitVectorVoxel* voxelmap, unsigned char* d_VoxelRaw, bool isMask);
+
+
 // do added end
 
 template<class Voxel>

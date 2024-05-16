@@ -123,7 +123,18 @@ bool cuTestAndInitDevice()
         << std::endl;
     return false;
   }
-  cudaSetDevice(device);
+  // // do added
+  // if(device_count >= 2){
+  //   cudaSetDevice(device_count-1);
+  // }
+  // else{
+  //   cudaSetDevice(device);
+  // }
+
+  // int using_device =-1;
+  // cudaGetDevice(&using_device);
+  // printf("[GPU_INFO] GPU voxels Using device %d\n", using_device);
+
   HANDLE_CUDA_ERROR(cudaDeviceSetCacheConfig(cudaFuncCachePreferL1));
 //HANDLE_CUDA_ERROR(cudaDeviceSetCacheConfig(cudaFuncCachePreferShared));
   return true;

@@ -884,20 +884,20 @@ void TemplateVoxelMap<BitVectorVoxel>::updateVisUnknown(bool isVisUnknown)
 }
 
 template<class Voxel>
-void TemplateVoxelMap<Voxel>::getVoxelRaw(unsigned char* d_VoxelRaw)
+void TemplateVoxelMap<Voxel>::getVoxelRaw(unsigned char* d_VoxelRaw, bool isMask)
 {
 }
 template<>
-void TemplateVoxelMap<BitVectorVoxel>::getVoxelRaw(unsigned char* d_VoxelRaw)
+void TemplateVoxelMap<BitVectorVoxel>::getVoxelRaw(unsigned char* d_VoxelRaw, bool isMask)
 {
   if(m_dim.x == 256 and m_dim.y == 256)
   {
     uint32_t num_blocks, threads_per_block;
     uint32_t size = m_dim.x*m_dim.y*m_dim.z;
     computeLinearLoad(size, &num_blocks, &threads_per_block);
-    kernelGetVoxelRaw<<<num_blocks, threads_per_block>>>(m_dev_data,d_VoxelRaw);
+    kernelGetVoxelRaw<<<num_blocks, threads_per_block>>>(m_dev_data,d_VoxelRaw,isMask);
   }
-  else if(m_dim.x == 512 and m_dim.y == 512) kernelGetVoxelRaw<<<131072, 512>>>(m_dev_data,d_VoxelRaw);
+  else if(m_dim.x == 512 and m_dim.y == 512) kernelGetVoxelRaw<<<131072, 512>>>(m_dev_data,d_VoxelRaw,isMask);
 }
 
 // do added end

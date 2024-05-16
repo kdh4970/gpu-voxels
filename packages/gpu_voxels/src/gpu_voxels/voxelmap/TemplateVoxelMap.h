@@ -171,7 +171,7 @@ public:
 
   virtual void updateVisUnknown(bool isVisUnknown);
 
-  virtual void getVoxelRaw(unsigned char* d_VoxelRaw);
+  virtual void getVoxelRaw(unsigned char* d_VoxelRaw,bool isMask);
   // do added
 
   virtual void insertCoordinateList(const std::vector<Vector3ui> &coordinates, const BitVoxelMeaning voxel_meaning);

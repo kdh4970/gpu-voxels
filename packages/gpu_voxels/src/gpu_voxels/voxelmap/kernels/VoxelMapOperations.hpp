@@ -40,7 +40,8 @@ __constant__ uint16_t const_depth_size[2]; // depth image size width, height
 __constant__ uint16_t const_mask_width[1];  // mask width
 __constant__ float const_mask_scale[1]; // mask scale
 __constant__ int const_initialBit[1];
-__constant__ int Filter[133]={
+__constant__ int static_bit[7] = {31,36,37,38,39,46,48};
+__constant__ int Filter[133] = {
   0
   ,-1
   ,-1
@@ -768,14 +769,118 @@ void kernelReconWithPreprocess(BitVectorVoxel* voxelmap, float* const depth0,flo
     return;
 }
 
+// 240403 preserving static voxel 
 __global__
-void kernelGetVoxelRaw(BitVectorVoxel* voxelmap, unsigned char* d_VoxeRaw)
+void kernelReconVoxel(BitVectorVoxel* voxelmap, float* const depth0,float* const depth1,float* const depth2, uint8_t* const mask0,
+                                uint8_t* const mask1, uint8_t* const mask2, gpu_voxels::Matrix4f const intrInv0, gpu_voxels::Matrix4f const intrInv1, gpu_voxels::Matrix4f const intrInv2, gpu_voxels::Matrix4f const extrInv0, 
+                                gpu_voxels::Matrix4f const extrInv1, gpu_voxels::Matrix4f const extrInv2)
 {
-  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
-  BitVectorVoxel* voxel = &voxelmap[i];
-  if(voxel->bitVector().getBit(1))
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.x; // 32bit = 4byte
+  Vector3f uint_coords; // 12byte
+  Vector4f proj; // 16byte
+  uint_coords.x = (i % const_voxel_map_dim[0]) * const_voxel_side_length[0];
+  uint_coords.y = ((i / const_voxel_map_dim[0]) % const_voxel_map_dim[1]) * const_voxel_side_length[0];
+  uint_coords.z = ((i / (const_voxel_map_dim[0]*const_voxel_map_dim[1])) % const_voxel_map_dim[2]) * const_voxel_side_length[0];
+  BitVectorVoxel* voxel = &voxelmap[i]; //256bit = 32byte
+  proj = ImageSpaceProjections(intrInv0, extrInv0, uint_coords);
+  int x0 = (int) __fdividef(proj.x, proj.z); int y0 = (int) __fdividef(proj.y, proj.z); // 8*3byte
+  proj = ImageSpaceProjections(intrInv1, extrInv1, uint_coords);
+  int x1 = (int) __fdividef(proj.x, proj.z); int y1 = (int) __fdividef(proj.y, proj.z); 
+  proj = ImageSpaceProjections(intrInv2, extrInv2, uint_coords);
+  int x2 = (int) __fdividef(proj.x, proj.z); int y2 = (int) __fdividef(proj.y, proj.z); 
+
+  bool condition0 = (x0>0) & (y0>0) & (x0<const_depth_size[0]) & (y0<const_depth_size[1]);// 1*3byte
+  bool condition1 = (x1>0) & (y1>0) & (x1<const_depth_size[0]) & (y1<const_depth_size[1]);
+  bool condition2 = (x2>0) & (y2>0) & (x2<const_depth_size[0]) & (y2<const_depth_size[1]);
+
+  bool isExist0 = chkVoxelinDepth(recon_threshold,extrInv0, uint_coords, depth0, const_depth_size[0], x0, y0, condition0);// 1*3byte
+  bool isExist1 = chkVoxelinDepth(recon_threshold,extrInv1, uint_coords, depth1, const_depth_size[0], x1, y1, condition1);
+  bool isExist2 = chkVoxelinDepth(recon_threshold,extrInv2, uint_coords, depth2, const_depth_size[0], x2, y2, condition2);
+  bool isExist = isExist0 || isExist1 || isExist2;
+
+  uint8_t maskid0 = isExist0 ? mask0[static_cast<int>(round(const_mask_scale[0] * y0)) * const_mask_width[0] + static_cast<int>(round(const_mask_scale[0] *x0))] : 0;//1*3byte
+  uint8_t maskid1 = isExist1 ? mask1[static_cast<int>(round(const_mask_scale[0] * y1)) * const_mask_width[0] + static_cast<int>(round(const_mask_scale[0] *x1))] : 0;
+  uint8_t maskid2 = isExist2 ? mask2[static_cast<int>(round(const_mask_scale[0] * y2)) * const_mask_width[0] + static_cast<int>(round(const_mask_scale[0] *x2))] : 0;
+
+  // bool maskExist = (maskid0 != 0 || maskid1 != 0 || maskid2 != 0);
+  bool maskExist = ((maskid0 | maskid1 | maskid2) != 0);
+  int oldBit=voxel->bitVector().findBit();
+  int maskinput=chkMask(oldBit, maskid0, maskid1, maskid2);
+  int filtered = maskinput==-1?0: Filter[maskinput-1];
+  uint8_t newBit = filtered==-1?0: filtered+const_initialBit[0];
+
+  // new test code
+
+  // 이전 복셀이 없고, 현재 복셀도 없으면 return
+  if(oldBit == -1)
   {
-    d_VoxeRaw[i] = 255;
+    if(!isExist) return;
+    // 이전 복셀이 없고, 현재 복셀이 있으면 복셀 생성
+    if(maskExist){ // 현재 복셀이 마스크가 있으면 삽입
+      if(newBit!=0) voxel->insert(static_cast<BitVoxelMeaning>(newBit));
+      return;}
+    else{ // 마스크가 없는 경우, unknown == true이면 unknown 복셀 삽입
+      if(visUnknown) voxel->insert(static_cast<BitVoxelMeaning>(1));
+      return;}
+  }
+  // 이전 복셀이 존재하는 경우
+
+
+
+
+
+
+  /// old code
+   // not exist old voxel
+  if(oldBit == -1) {
+    if(isExist) {// new voxel exist
+      if(maskExist){ // new voxel has mask data
+        if(newBit!=0) voxel->insert(static_cast<BitVoxelMeaning>(newBit));
+        return;}
+      else{ // new voxel has no mask data
+        if(visUnknown) voxel->insert(static_cast<BitVoxelMeaning>(1));
+        return;}
+    }
+    else{ // new voxel not exist
+      return;}
+  }
+  // exist old voxel
+  else{
+    if(isExist){ // new voxel exist
+      if(maskExist){ // new voxel has mask data
+        if(oldBit == newBit) return; // if state is not changed, do nothing
+        else{ // if state is changed
+          // printf("oldBit : %d , oldBit1 : %d\n", oldBit, oldBit1);
+          voxel->clear(static_cast<BitVoxelMeaning>(oldBit));
+          voxel->insert(static_cast<BitVoxelMeaning>(newBit));
+          return;}
+      }
+      else{ // new voxel has no mask data
+        if(!visUnknown) voxel->clear(static_cast<BitVoxelMeaning>(oldBit));
+        return;} // just remmain old voxel's class data
+    }
+    else{ // new voxel not exist
+      voxel->clear(static_cast<BitVoxelMeaning>(oldBit));return;}
+  }
+  // if(!visUnknown) voxel->clear(static_cast<BitVoxelMeaning>(1));
+}
+
+__global__
+void kernelGetVoxelRaw(BitVectorVoxel* voxelmap, unsigned char* d_VoxelRaw, bool isMask)
+{
+  uint32_t i = blockIdx.x * blockDim.x + threadIdx.
+  x;
+  BitVectorVoxel* voxel = &voxelmap[i];
+  // not using segmentation mask
+  int classRaw = voxel->bitVector().findBit();
+  if(!isMask){
+    if(classRaw != -1)
+    {
+      d_VoxelRaw[i] = 255;
+    }
+  }
+  else{
+    d_VoxelRaw[i] = classRaw==-1?0:classRaw;
   }
 }
 
